@@ -335,10 +335,44 @@ function App() {
     }
   };
 
-  // Billing subscriptions checkout simulator
-  const triggerBillingCheckout = (planName) => {
-    setBillingPlanName(planName);
-    setIsBillingModalOpen(true);
+  // Billing subscriptions checkout integration
+  const triggerBillingCheckout = async (planName) => {
+    if (planName === 'FREE') {
+      setBillingPlanName(planName);
+      setIsBillingModalOpen(true);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/billing/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ tier: planName })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to initialize subscription');
+      }
+
+      if (data.url) {
+        // Real Stripe billing checkout url returned
+        window.location.href = data.url;
+      } else {
+        // Fallback to Stripe payment simulator
+        setBillingPlanName(planName);
+        setIsBillingModalOpen(true);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSimulatePayment = async (e) => {
@@ -1538,19 +1572,19 @@ function App() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateMonitor} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleCreateMonitor} className="p-8 space-y-6 max-h-[85vh] overflow-y-auto">
               
               {/* Monitor Type */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase">Check Type</label>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-400 block">Check Type</label>
                   <select
                     value={newMonitorType}
                     onChange={(e) => {
                       setNewMonitorType(e.target.value);
                       if (e.target.value === 'PORT' && newMonitorPort === '80') setNewMonitorPort('80');
                     }}
-                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750"
+                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                   >
                     <option value="HTTP">HTTP / HTTPS</option>
                     <option value="SSL_ONLY" disabled={user && user.subscription_tier === 'FREE'}>SSL Expiry</option>
@@ -1558,12 +1592,12 @@ function App() {
                     <option value="KEYWORD" disabled={user && user.subscription_tier === 'FREE'}>Keyword Presence</option>
                   </select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase">Check Frequency</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-400 block">Check Frequency</label>
                   <select
                     value={newMonitorInterval}
                     onChange={(e) => setNewMonitorInterval(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750"
+                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                   >
                     <option value="1" disabled={user && user.subscription_tier === 'FREE'}>Every 1 min</option>
                     <option value="5" disabled={user && user.subscription_tier === 'FREE'}>Every 5 min</option>
@@ -1575,27 +1609,27 @@ function App() {
               </div>
 
               {user && user.subscription_tier === 'FREE' && (
-                <div className="p-2.5 bg-indigo-950/15 border border-indigo-900/20 rounded-xl text-[10px] text-indigo-400">
+                <div className="p-3 bg-indigo-950/15 border border-indigo-900/20 rounded-xl text-[11px] text-indigo-400">
                   ⚡ PRO plans unlock 1-minute intervals, SSL Expiry, TCP Port, and Keyword checking.
                 </div>
               )}
 
               {/* Monitor Label */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase">Friendly Label</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-400 block">Friendly Label</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Corporate Website"
                   value={newMonitorName}
                   onChange={(e) => setNewMonitorName(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-855 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750 placeholder:text-zinc-700"
+                  className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700"
                 />
               </div>
 
               {/* URL/Target */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-400 block">
                   {newMonitorType === 'PORT' ? 'Host IP or Domain' : 'Check URL'}
                 </label>
                 <input
@@ -1604,118 +1638,118 @@ function App() {
                   placeholder={newMonitorType === 'PORT' ? 'e.g. google.com or 192.168.1.1' : 'https://example.com'}
                   value={newMonitorUrl}
                   onChange={(e) => setNewMonitorUrl(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-755 placeholder:text-zinc-700"
+                  className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700"
                 />
               </div>
 
               {/* Port Input (Conditional) */}
               {newMonitorType === 'PORT' && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase">TCP Port</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-400 block">TCP Port</label>
                   <input
                     type="number"
                     required
                     placeholder="e.g. 80, 443, 22"
                     value={newMonitorPort}
                     onChange={(e) => setNewMonitorPort(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750"
+                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                   />
                 </div>
               )}
 
               {/* Keyword Input (Conditional) */}
               {newMonitorType === 'KEYWORD' && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase">Target Keyword</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-400 block">Target Keyword</label>
                   <input
                     type="text"
                     required
                     placeholder="Alert if page html DOES NOT contain this word"
                     value={newMonitorKeyword}
                     onChange={(e) => setNewMonitorKeyword(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750 placeholder:text-zinc-700"
+                    className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700"
                   />
                 </div>
               )}
 
               {/* Alert destination configurations */}
-              <div className="border-t border-zinc-800/80 pt-4 space-y-3">
-                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Outage Alert Channels</h4>
+              <div className="border-t border-zinc-800/80 pt-5 space-y-4">
+                <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider block">Outage Alert Channels</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-zinc-500">Email Alerts Address</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-zinc-450 block">Email Alerts Address</label>
                     <input
                       type="email"
                       placeholder="alerts@company.com"
                       value={newEmailAlert}
                       disabled={user && user.subscription_tier === 'FREE'}
                       onChange={(e) => setNewEmailAlert(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750 placeholder:text-zinc-700 disabled:opacity-50"
+                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700 disabled:opacity-50"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-zinc-500">Slack Webhook URL</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-zinc-450 block">Slack Webhook URL</label>
                     <input
                       type="url"
                       placeholder="https://hooks.slack.com/services/..."
                       value={newSlackWebhook}
                       disabled={user && user.subscription_tier !== 'ENTERPRISE'}
                       onChange={(e) => setNewSlackWebhook(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750 placeholder:text-zinc-700 disabled:opacity-50"
+                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700 disabled:opacity-50"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-zinc-500">Telegram Bot Token</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-zinc-450 block">Telegram Bot Token</label>
                     <input
                       type="text"
                       placeholder="123456:ABCdef..."
                       value={newTelegramBot}
                       disabled={user && user.subscription_tier !== 'ENTERPRISE'}
                       onChange={(e) => setNewTelegramBot(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-755 placeholder:text-zinc-700 disabled:opacity-50"
+                      className="w-full bg-zinc-955 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700 disabled:opacity-50"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9px] text-zinc-500">Telegram Chat ID</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-zinc-450 block">Telegram Chat ID</label>
                     <input
                       type="text"
                       placeholder="-100123456789"
                       value={newTelegramChat}
                       disabled={user && user.subscription_tier !== 'ENTERPRISE'}
                       onChange={(e) => setNewTelegramChat(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-zinc-750 placeholder:text-zinc-700 disabled:opacity-50"
+                      className="w-full bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 placeholder:text-zinc-700 disabled:opacity-50"
                     />
                   </div>
                 </div>
 
                 {user && user.subscription_tier !== 'ENTERPRISE' && (
-                  <p className="text-[9px] text-zinc-500">
+                  <p className="text-[10px] text-zinc-500">
                     * Slack/Telegram notifications are restricted to Enterprise tier.
                   </p>
                 )}
               </div>
 
-              <div className="pt-4 border-t border-zinc-800 flex justify-end gap-3">
+              <div className="pt-5 border-t border-zinc-800 flex justify-end gap-3.5">
                 <button
                   type="button"
                   onClick={() => {
                     setIsCreateModalOpen(false);
                     resetCreateForm();
                   }}
-                  className="px-4 py-2 border border-zinc-800 hover:border-zinc-750 text-zinc-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="px-5 py-2.5 border border-zinc-800 hover:border-zinc-750 text-zinc-300 hover:text-white rounded-xl text-sm font-bold transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-5 py-2 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                  className="px-6 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl text-sm transition-all cursor-pointer"
                 >
                   {isLoading ? 'Creating...' : 'Register Monitor'}
                 </button>
