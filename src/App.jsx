@@ -57,6 +57,13 @@ function App() {
   const [publicStatusData, setPublicStatusData] = useState(null);
   const [publicStatusLoading, setPublicStatusLoading] = useState(false);
 
+  // API Keys developer states
+  const [apiKeys, setApiKeys] = useState([]);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [revealedKey, setRevealedKey] = useState(null);
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
+  const [activeCodeTab, setActiveCodeTab] = useState('python');
+
   // Fetch current user details
   const fetchUser = async (authToken) => {
     try {
@@ -138,10 +145,70 @@ function App() {
     }
   }, [statusPageUserId]);
 
+  // API Key management functions
+  const fetchApiKeys = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/auth/apikeys`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setApiKeys(data);
+      }
+    } catch (err) {
+      console.error('Error fetching API keys:', err);
+    }
+  };
+
+  const handleGenerateApiKey = async () => {
+    setIsGeneratingKey(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/apikeys`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newKeyName.trim() || 'Default API Key' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate API key');
+      setRevealedKey(data.api_key);
+      setNewKeyName('');
+      fetchApiKeys();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsGeneratingKey(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (id) => {
+    if (!window.confirm('Are you sure you want to revoke this API key? Any scripts using it will stop working immediately.')) return;
+    try {
+      const res = await fetch(`${API_URL}/api/auth/apikeys/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to revoke API key');
+      }
+      setSuccess('API key revoked successfully');
+      fetchApiKeys();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchUser(token);
       fetchData();
+      fetchApiKeys();
       
       const refreshInterval = setInterval(() => {
         fetchData(true);
@@ -842,6 +909,20 @@ function App() {
             </svg>
             Public Status Page
           </button>
+
+          <button
+            onClick={() => setActiveTab('developer')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+              activeTab === 'developer'
+                ? 'bg-zinc-800/60 text-white border border-zinc-700/50 shadow-inner'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900/30 border border-transparent'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            Developer API
+          </button>
         </nav>
 
         {/* User Account Controls */}
@@ -876,7 +957,7 @@ function App() {
         {/* Header */}
         <header className="h-16 border-b border-[#27272a]/60 bg-[#09090b]/80 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-20">
           <div className="text-sm font-semibold tracking-wide text-zinc-300 capitalize">
-            {activeTab === 'statuspage' ? 'Public Status Page' : activeTab === 'dashboard' ? 'Overview' : activeTab}
+            {activeTab === 'statuspage' ? 'Public Status Page' : activeTab === 'dashboard' ? 'Overview' : activeTab === 'developer' ? 'Developer API' : activeTab}
           </div>
 
           <div className="flex items-center gap-3">
@@ -1454,6 +1535,229 @@ function App() {
               </div>
             )}
 
+            {/* TAB: DEVELOPER API & INTEGRATIONS */}
+            {activeTab === 'developer' && (
+              <div className="space-y-8 animate-in fade-in duration-300">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-bold text-white">Developer API & Integrations</h2>
+                  <p className="text-xs text-zinc-500">Generate API keys to manage your monitors programmatically via REST API. Authenticate using <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-indigo-400">X-API-Key</code> or <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-indigo-400">Authorization: Bearer</code> headers.</p>
+                </div>
+
+                {/* API Key Generation */}
+                <div className="p-6 bg-zinc-900/20 border border-zinc-800/80 rounded-2xl space-y-5">
+                  <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Generate New API Key</h3>
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1 space-y-1.5">
+                      <label className="text-[10px] font-semibold text-zinc-500 block">Key Label (optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CI/CD Pipeline, Monitoring Script"
+                        value={newKeyName}
+                        onChange={(e) => setNewKeyName(e.target.value)}
+                        className="w-full bg-[#0c0c0e] border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 transition-all placeholder:text-zinc-700"
+                      />
+                    </div>
+                    <button
+                      onClick={handleGenerateApiKey}
+                      disabled={isGeneratingKey}
+                      className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-emerald-600/10 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isGeneratingKey ? 'Generating...' : '+ Generate Key'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-600">Maximum 5 keys per account. Keys are hashed securely — the plain key is shown only once upon generation.</p>
+                </div>
+
+                {/* Active API Keys Table */}
+                <div className="p-6 bg-zinc-900/20 border border-zinc-800/80 rounded-2xl space-y-4">
+                  <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Active API Keys</h3>
+                  {apiKeys.length === 0 ? (
+                    <div className="p-10 text-center border border-dashed border-zinc-800 rounded-xl text-zinc-600 text-xs">
+                      No API keys generated yet. Create one above to get started.
+                    </div>
+                  ) : (
+                    <div className="border border-zinc-800/80 rounded-xl overflow-hidden bg-zinc-950/20">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-zinc-800 text-[10px] font-bold uppercase text-zinc-500 tracking-wider bg-zinc-900/20">
+                            <th className="p-3.5">Label</th>
+                            <th className="p-3.5">Key Hint</th>
+                            <th className="p-3.5">Created</th>
+                            <th className="p-3.5">Last Used</th>
+                            <th className="p-3.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-900 text-xs">
+                          {apiKeys.map((key) => (
+                            <tr key={key.id} className="hover:bg-zinc-900/10 transition-colors">
+                              <td className="p-3.5 font-semibold text-zinc-200">{key.name}</td>
+                              <td className="p-3.5 font-mono text-indigo-400 text-[11px]">{key.key_hint}</td>
+                              <td className="p-3.5 text-zinc-500">{new Date(key.created_at).toLocaleDateString()}</td>
+                              <td className="p-3.5 text-zinc-500">{key.last_used_at ? new Date(key.last_used_at).toLocaleString() : 'Never'}</td>
+                              <td className="p-3.5 text-right">
+                                <button
+                                  onClick={() => handleRevokeApiKey(key.id)}
+                                  className="px-3 py-1.5 bg-red-950/20 hover:bg-red-950/40 text-red-400 hover:text-red-300 font-bold border border-red-950/30 rounded-lg text-[10px] transition-all cursor-pointer"
+                                >
+                                  Revoke
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Code Integration Snippets */}
+                <div className="p-6 bg-zinc-900/20 border border-zinc-800/80 rounded-2xl space-y-5">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Code Integration Templates</h3>
+                    <p className="text-[10px] text-zinc-600">Copy-paste these snippets into your scripts to interact with the LinkSentinel API. Replace <code className="bg-zinc-800 px-1 py-0.5 rounded text-amber-400">YOUR_API_KEY</code> with your generated key.</p>
+                  </div>
+
+                  {/* Language Tabs */}
+                  <div className="flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded-xl p-1">
+                    {['python', 'nodejs', 'curl'].map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => setActiveCodeTab(lang)}
+                        className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                          activeCodeTab === lang
+                            ? 'bg-zinc-800 text-white shadow-inner'
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {lang === 'python' ? 'Python' : lang === 'nodejs' ? 'Node.js' : 'cURL'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Snippet Display */}
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        const snippetEl = document.getElementById('code-snippet');
+                        if (snippetEl) {
+                          navigator.clipboard.writeText(snippetEl.innerText);
+                          setSuccess('Code snippet copied to clipboard!');
+                          setTimeout(() => setSuccess(null), 2500);
+                        }
+                      }}
+                      className="absolute top-3 right-3 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-[9px] font-bold border border-zinc-700/50 transition-all cursor-pointer z-10"
+                    >
+                      Copy
+                    </button>
+
+                    <pre id="code-snippet" className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 text-[11px] leading-relaxed text-zinc-300 overflow-x-auto font-mono">
+                      {activeCodeTab === 'python' && `import requests
+
+API_KEY = "${revealedKey || 'YOUR_API_KEY'}"
+BASE_URL = "${API_URL}/api/v1"
+
+headers = {
+    "X-API-Key": API_KEY,
+    "Content-Type": "application/json"
+}
+
+# List all monitors
+response = requests.get(f"{BASE_URL}/monitors", headers=headers)
+print(response.json())
+
+# Create a new monitor
+new_monitor = {
+    "name": "My Website",
+    "url": "https://example.com",
+    "check_type": "HTTP",
+    "check_interval": 5
+}
+response = requests.post(f"{BASE_URL}/monitors", json=new_monitor, headers=headers)
+print(response.json())
+
+# Delete a monitor
+monitor_id = 1
+response = requests.delete(f"{BASE_URL}/monitors/{monitor_id}", headers=headers)
+print(response.json())`}
+                      {activeCodeTab === 'nodejs' && `const API_KEY = "${revealedKey || 'YOUR_API_KEY'}";
+const BASE_URL = "${API_URL}/api/v1";
+
+const headers = {
+  "X-API-Key": API_KEY,
+  "Content-Type": "application/json"
+};
+
+// List all monitors
+const listMonitors = async () => {
+  const res = await fetch(BASE_URL + "/monitors", { headers });
+  const data = await res.json();
+  console.log(data);
+};
+
+// Create a new monitor
+const createMonitor = async () => {
+  const res = await fetch(BASE_URL + "/monitors", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      name: "My Website",
+      url: "https://example.com",
+      check_type: "HTTP",
+      check_interval: 5
+    })
+  });
+  const data = await res.json();
+  console.log(data);
+};
+
+listMonitors();
+createMonitor();`}
+                      {activeCodeTab === 'curl' && `# List all monitors
+curl -X GET "${API_URL}/api/v1/monitors" \\
+  -H "X-API-Key: ${revealedKey || 'YOUR_API_KEY'}"
+
+# Create a new monitor
+curl -X POST "${API_URL}/api/v1/monitors" \\
+  -H "X-API-Key: ${revealedKey || 'YOUR_API_KEY'}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"name": "My Website", "url": "https://example.com", "check_type": "HTTP", "check_interval": 5}'
+
+# Delete a monitor (replace 1 with actual ID)
+curl -X DELETE "${API_URL}/api/v1/monitors/1" \\
+  -H "X-API-Key: ${revealedKey || 'YOUR_API_KEY'}"`}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* API Reference Quick Card */}
+                <div className="p-6 bg-zinc-900/20 border border-zinc-800/80 rounded-2xl space-y-4">
+                  <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">API Reference</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      { method: 'GET', path: '/api/v1/monitors', desc: 'List all monitors' },
+                      { method: 'POST', path: '/api/v1/monitors', desc: 'Create a new monitor' },
+                      { method: 'GET', path: '/api/v1/monitors/:id', desc: 'Get monitor details + logs' },
+                      { method: 'PATCH', path: '/api/v1/monitors/:id', desc: 'Update a monitor' },
+                      { method: 'DELETE', path: '/api/v1/monitors/:id', desc: 'Delete a monitor' },
+                    ].map((ep, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 bg-zinc-950/60 border border-zinc-900 rounded-xl">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono border ${
+                          ep.method === 'GET' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' :
+                          ep.method === 'POST' ? 'bg-blue-500/10 text-blue-400 border-blue-500/15' :
+                          ep.method === 'PATCH' ? 'bg-amber-500/10 text-amber-400 border-amber-500/15' :
+                          'bg-red-500/10 text-red-400 border-red-500/15'
+                        }`}>
+                          {ep.method}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400 flex-1">{ep.path}</span>
+                        <span className="text-[9px] text-zinc-600">{ep.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
           {/* Right sidebar monitor details drawer */}
@@ -1859,6 +2163,73 @@ function App() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* API KEY REVEAL MODAL */}
+      {revealedKey && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                API Key Generated Successfully
+              </h3>
+              <button
+                onClick={() => setRevealedKey(null)}
+                className="text-zinc-500 hover:text-zinc-300 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div className="p-4 bg-amber-950/15 border border-amber-900/25 rounded-xl text-amber-300 text-xs flex gap-3 items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <span className="font-bold block mb-0.5">Important: Save this key now!</span>
+                  This is the only time your full API key will be displayed. It cannot be retrieved later. Store it securely.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase">Your API Key</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={revealedKey}
+                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-emerald-400 font-mono select-all focus:outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(revealedKey);
+                      setSuccess('API key copied to clipboard!');
+                      setTimeout(() => setSuccess(null), 2500);
+                    }}
+                    className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer border border-zinc-700/60"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-zinc-800 flex justify-end">
+                <button
+                  onClick={() => setRevealedKey(null)}
+                  className="px-5 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl text-sm transition-all cursor-pointer"
+                >
+                  I've Saved My Key
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
