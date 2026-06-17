@@ -170,7 +170,7 @@ function App() {
               <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-200 to-sky-400 bg-clip-text text-transparent">
                 Dead Link Saver
               </h1>
-              <p className="text-xs text-slate-400">Affiliate Campaigns Monitor</p>
+              <p className="text-xs text-slate-400">Web Link Status Monitor</p>
             </div>
           </div>
 
@@ -257,17 +257,17 @@ function App() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Add Campaign Link
+                Add New Link
               </h2>
               
               <form onSubmit={handleAddLink} className="space-y-4">
                 <div>
-                  <label htmlFor="campaign-name" className="block text-xs font-semibold text-slate-400 mb-1.5">Campaign Name</label>
+                  <label htmlFor="link-name" className="block text-xs font-semibold text-slate-400 mb-1.5">Link Name</label>
                   <input
-                    id="campaign-name"
+                    id="link-name"
                     type="text"
                     required
-                    placeholder="e.g. Performance Golf Landing"
+                    placeholder="e.g. My Company Homepage"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
@@ -275,12 +275,12 @@ function App() {
                 </div>
 
                 <div>
-                  <label htmlFor="campaign-url" className="block text-xs font-semibold text-slate-400 mb-1.5">Affiliate URL</label>
+                  <label htmlFor="link-url" className="block text-xs font-semibold text-slate-400 mb-1.5">Target Link URL</label>
                   <input
-                    id="campaign-url"
+                    id="link-url"
                     type="url"
                     required
-                    placeholder="https://example.com/hoplink"
+                    placeholder="https://example.com"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
@@ -315,13 +315,13 @@ function App() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                     </svg>
                     <p className="text-sm">No links being monitored yet.</p>
-                    <p className="text-xs mt-1 text-slate-600">Add a campaign link on the left to start.</p>
+                    <p className="text-xs mt-1 text-slate-600">Add a website link on the left to start.</p>
                   </div>
                 ) : (
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-800 text-xs font-semibold uppercase text-slate-400 tracking-wider">
-                        <th className="pb-3 pr-4">Campaign Name</th>
+                        <th className="pb-3 pr-4">Link Name</th>
                         <th className="pb-3 pr-4">Target URL</th>
                         <th className="pb-3 pr-4 text-center">Status</th>
                         <th className="pb-3 pr-4">Last Checked</th>
