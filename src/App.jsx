@@ -1715,7 +1715,7 @@ function App() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-5 py-2 bg-zinc-100 hover:bg-white text-zinc-955 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                  className="px-5 py-2 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl text-xs transition-all cursor-pointer"
                 >
                   {isLoading ? 'Creating...' : 'Register Monitor'}
                 </button>
