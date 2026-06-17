@@ -131,7 +131,7 @@ function App() {
     setError(null);
     setSuccess(null);
     try {
-      const secret = prompt('Enter Cron Secret passphrase (if configured):') || '';
+      const secret = prompt('Enter Cron Secret passphrase (if configured):', 'super_secret_cron_passphrase') || '';
       const res = await fetch(`${API_URL}/api/cron/check?secret=${encodeURIComponent(secret)}`);
       const data = await res.json();
       
